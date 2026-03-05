@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<title>JS Operatorlar</title>
+</head>
+<body>
+
+
+<script>
+// =====================
+// 1) Unary
+// =====================
+let x = 5;
+x++;
+console.log("Unary (x++):", x);
+
+console.log("Unary (-x):", -x);
+
+
+// =====================
+// 2) Binary (riyazi)
+// =====================
+let a = 10;
+let b = 3;
+
+console.log("a + b =", a + b);
+console.log("a - b =", a - b);
+console.log("a * b =", a * b);
+console.log("a / b =", a / b);
+console.log("a % b =", a % b);
+console.log("a ** b =", a ** b);
+
+
+
+// 3) Ternary
+
+let age = 17;
+let result = age >= 18 ? "Yetkin" : "Yetkin deyil";
+console.log("Ternary nəticə:", result);
+
+
+// 4) Mənimsətmə
+let num = 20;
+
+num += 5;
+console.log("num += 5 →", num);
+
+num -= 3;
+console.log("num -= 3 →", num);
+
+num *= 2;
+console.log("num *= 2 →", num);
+
+num /= 2;
+console.log("num /= 2 →", num);
+
+num %= 4;
+console.log("num %= 4 →", num);
+
+
+// 5) Müqayisə
+let c = 5;
+let d = "5";
+
+console.log("c == d →", c == d);
+console.log("c === d →", c === d);
+console.log("c != d →", c != d);
+console.log("c > 3 →", c > 3);
+console.log("c <= 5 →", c <= 5);
+
+
+
+// 6) Məntiqi
+let hasID = true;
+
+console.log("age > 18 && hasID →", age > 18 && hasID);
+console.log("age < 18 || hasID →", age < 18 || hasID);
+console.log("!hasID →", !hasID);
+
+
+// 7) Bitwise
+
+let m = 5; // 0101
+let n = 3; // 0011
+
+console.log("m & n →", m & n);
+console.log("m | n →", m | n);
+console.log("m ^ n →", m ^ n);
+console.log("~m →", ~m);
+console.log("m << 1 →", m << 1);
+console.log("m >> 1 →", m >> 1);
+</script>
+
+</body>
+</html>

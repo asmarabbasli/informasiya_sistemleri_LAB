@@ -1,0 +1,1 @@
+# informasiya_sistemleri_LAB

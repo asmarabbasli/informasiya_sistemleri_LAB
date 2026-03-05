@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>XOR — Neural Network Visualizer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;600&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f0e8;
+  --ink:#1a1410;
+  --card:#fffdf7;
+  --border:#d4c9b0;
+  --red:#e63325;
+  --blue:#1a5eb8;
+  --green:#2a9d4e;
+  --orange:#f4820a;
+  --fh:'Bebas Neue',sans-serif;
+  --fm:'IBM Plex Mono',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--ink);font-family:var(--fm);overflow-x:hidden}
+
+/* grain texture */
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity:.5}
+
+.app{max-width:980px;margin:0 auto;padding:32px 20px 60px;min-height:100vh}
+
+/* header */
+.hdr{display:flex;align-items:baseline;gap:18px;margin-bottom:6px;border-bottom:3px solid var(--ink);padding-bottom:10px}
+h1{font-family:var(--fh);font-size:clamp(36px,6vw,64px);letter-spacing:1px;line-height:1}
+.hdr-sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#666;border-left:2px solid var(--border);padding-left:14px}
+.tagline{font-size:11px;color:#888;letter-spacing:1px;margin-bottom:28px;font-family:var(--fm)}
+
+/* grid */
+.grid{display:grid;grid-template-columns:1fr 300px;gap:20px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+
+/* canvas card */
+.canvas-card{background:var(--card);border:2px solid var(--ink);border-radius:4px;padding:16px;position:relative}
+.card-label{font-family:var(--fh);font-size:13px;letter-spacing:2px;color:#888;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+#mainCanvas{display:block;width:100%;border:1px solid var(--border);border-radius:2px;cursor:crosshair;background:#fff}
+.canvas-hint{font-size:10px;color:#aaa;letter-spacing:1px;margin-top:8px;text-align:center}
+
+/* legend */
+.legend{display:flex;gap:16px;margin-top:10px}
+.leg{display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:1px}
+.leg-dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--ink)}
+
+/* right panel */
+.right{display:flex;flex-direction:column;gap:16px}
+
+/* stat cards */
+.stat-card{background:var(--card);border:2px solid var(--ink);border-radius:4px;padding:14px 16px}
+.sc-title{font-family:var(--fh);font-size:14px;letter-spacing:2px;color:#888;margin-bottom:8px}
+.big-num{font-family:var(--fh);font-size:48px;line-height:1;color:var(--ink);transition:color .3s}
+.big-num.good{color:var(--green)}
+.big-num.bad {color:var(--red)}
+.sc-sub{font-size:10px;color:#aaa;letter-spacing:1px;margin-top:2px}
+
+/* loss chart */
+.loss-wrap{background:var(--card);border:2px solid var(--ink);border-radius:4px;padding:14px 16px}
+.lw-title{font-family:var(--fh);font-size:14px;letter-spacing:2px;color:#888;margin-bottom:8px}
+#lossChart{display:block;width:100%}
+
+/* network viz */
+.net-card{background:var(--card);border:2px solid var(--ink);border-radius:4px;padding:14px 16px}
+.nc-title{font-family:var(--fh);font-size:14px;letter-spacing:2px;color:#888;margin-bottom:8px}
+#netCanvas{display:block;width:100%}
+
+/* controls */
+.controls{display:flex;flex-direction:column;gap:10px;background:var(--card);border:2px solid var(--ink);border-radius:4px;padding:14px 16px}
+.ctrl-title{font-family:var(--fh);font-size:14px;letter-spacing:2px;color:#888;margin-bottom:2px}
+.btn-row{display:flex;gap:8px}
+.btn{flex:1;padding:9px 10px;border:2px solid var(--ink);background:transparent;border-radius:3px;cursor:pointer;font-family:var(--fm);font-size:11px;letter-spacing:1px;font-weight:600;text-transform:uppercase;transition:.15s;color:var(--ink)}
+.btn:hover{background:var(--ink);color:var(--bg)}
+.btn.primary{background:var(--ink);color:var(--bg)}
+.btn.primary:hover{background:#333}
+.btn.danger{border-color:var(--red);color:var(--red)}
+.btn.danger:hover{background:var(--red);color:#fff}
+
+.slider-row{display:flex;flex-direction:column;gap:4px}
+.sl-label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#888;display:flex;justify-content:space-between}
+input[type=range]{width:100%;accent-color:var(--ink);height:3px}
+
+/* info strip */
+.info-strip{margin-top:20px;background:var(--card);border:2px solid var(--border);border-radius:4px;padding:14px 18px;display:flex;gap:24px;flex-wrap:wrap}
+.info-item{display:flex;flex-direction:column;gap:3px}
+.ii-label{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#aaa}
+.ii-val{font-size:13px;font-weight:600;color:var(--ink)}
+
+/* training state */
+.train-badge{font-size:9px;letter-spacing:2px;text-transform:uppercase;padding:3px 10px;border-radius:999px;font-weight:600}
+.train-badge.on{background:#fff3cd;color:#856404;border:1px solid #ffc107;animation:badgePulse 1s ease-in-out infinite}
+.train-badge.off{background:#d4edda;color:#155724;border:1px solid #28a745}
+@keyframes badgePulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="hdr">
+    <h1>XOR NET</h1>
+    <span class="hdr-sub">Neural Network Visualizer</span>
+  </div>
+  <p class="tagline">Click on the canvas to add RED or BLUE points · Watch the neural network learn to separate them</p>
+
+  <div class="grid">
+    <!-- Canvas -->
+    <div class="canvas-card">
+      <div class="card-label">
+        <span>DECISION BOUNDARY</span>
+        <span class="train-badge off" id="trainBadge">READY</span>
+      </div>
+      <canvas id="mainCanvas" width="500" height="500"></canvas>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:var(--red)"></div><span id="redCount">0 RED</span></div>
+        <div class="leg"><div class="leg-dot" style="background:var(--blue)"></div><span id="blueCount">0 BLUE</span></div>
+      </div>
+      <p class="canvas-hint">Left click = Red · Right click = Blue</p>
+    </div>
+
+    <!-- Right panel -->
+    <div class="right">
+
+      <div class="stat-card">
+        <div class="sc-title">ACCURACY</div>
+        <div class="big-num" id="accNum">—</div>
+        <div class="sc-sub">ON TRAINING DATA</div>
+      </div>
+
+      <div class="loss-wrap">
+        <div class="lw-title">LOSS CURVE</div>
+        <canvas id="lossChart" width="260" height="70"></canvas>
+      </div>
+
+      <div class="net-card">
+        <div class="nc-title">NETWORK</div>
+        <canvas id="netCanvas" width="260" height="110"></canvas>
+      </div>
+
+      <div class="controls">
+        <div class="ctrl-title">CONTROLS</div>
+        <div class="btn-row">
+          <button class="btn primary" id="trainBtn">▶ Train</button>
+          <button class="btn" id="stopBtn">■ Stop</button>
+          <button class="btn danger" id="clearBtn">✕ Clear</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="xorBtn">Load XOR</button>
+          <button class="btn" id="spiralBtn">Load Spiral</button>
+        </div>
+        <div class="slider-row">
+          <span class="sl-label"><span>Learning Rate</span><span id="lrVal">0.1</span></span>
+          <input type="range" id="lrSlider" min="-3" max="0" step="0.1" value="-1">
+        </div>
+        <div class="slider-row">
+          <span class="sl-label"><span>Hidden Neurons</span><span id="hnVal">4</span></span>
+          <input type="range" id="hnSlider" min="2" max="8" step="1" value="4">
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="info-strip">
+    <div class="info-item"><span class="ii-label">Architecture</span><span class="ii-val" id="archVal">2 → 4 → 1</span></div>
+    <div class="info-item"><span class="ii-label">Epochs</span><span class="ii-val" id="epochVal">0</span></div>
+    <div class="info-item"><span class="ii-label">Loss</span><span class="ii-val" id="lossVal">—</span></div>
+    <div class="info-item"><span class="ii-label">Points</span><span class="ii-val" id="pointsVal">0</span></div>
+    <div class="info-item"><span class="ii-label">Activation</span><span class="ii-val">Sigmoid</span></div>
+    <div class="info-item"><span class="ii-label">Optimizer</span><span class="ii-val">SGD</span></div>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════
+//  NEURAL NETWORK (2 → H → 1)
+// ══════════════════════════════════════
+const sig  = x => 1/(1+Math.exp(-x));
+const sigD = s => s*(1-s);
+const randn= () => (Math.random()-.5)*2;
+
+let NN = null;
+
+function createNet(h=4){
+  const r = (n,m) => Array.from({length:n},()=>Array.from({length:m},()=>randn()*Math.sqrt(2/n)));
+  const z = (n) => new Array(n).fill(0);
+  return {
+    h,
+    W1: r(h,2), b1: z(h),
+    W2: r(1,h), b2: z(1),
+  };
+}
+
+function forward(nn, x){
+  // Hidden layer
+  const a1 = nn.W1.map((row,i)=>sig(row[0]*x[0]+row[1]*x[1]+nn.b1[i]));
+  // Output layer
+  const z2 = nn.W2[0].reduce((s,w,i)=>s+w*a1[i],0)+nn.b2[0];
+  const a2 = sig(z2);
+  return {a1,a2};
+}
+
+function trainStep(nn, data, lr){
+  let totalLoss=0;
+  // Mini-batch SGD over all data
+  data.forEach(({x,y})=>{
+    const{a1,a2}=forward(nn,x);
+    const err = a2-y;
+    totalLoss += -y*Math.log(a2+1e-9)-(1-y)*Math.log(1-a2+1e-9);
+
+    // Backprop output→hidden
+    const dz2 = err; // BCE + sigmoid derivative cancels
+    const dW2 = a1.map(a=>a*dz2);
+
+    // Backprop hidden
+    const dz1 = nn.W2[0].map((w,i)=>w*dz2*sigD(a1[i]));
+
+    // Update
+    nn.W2[0].forEach((_,i)=>{ nn.W2[0][i]-=lr*dW2[i]; });
+    nn.b2[0]-=lr*dz2;
+    nn.W1.forEach((row,i)=>{
+      row[0]-=lr*dz1[i]*x[0];
+      row[1]-=lr*dz1[i]*x[1];
+      nn.b1[i]-=lr*dz1[i];
+    });
+  });
+  return totalLoss/data.length;
+}
+
+function accuracy(nn, data){
+  let ok=0;
+  data.forEach(({x,y})=>{ if(Math.round(forward(nn,x).a2)===y)ok++; });
+  return data.length?ok/data.length:0;
+}
+
+// ══════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════
+let points=[], lossHistory=[], epoch=0, running=false, rafId=null;
+let LR=0.1, HN=4;
+
+// ══════════════════════════════════════
+//  CANVAS SETUP
+// ══════════════════════════════════════
+const mc  = document.getElementById('mainCanvas');
+const mctx= mc.getContext('2d');
+const SIZE= 500;
+
+function canvasToNet(cx,cy){ return [cx/SIZE, cy/SIZE]; }
+function netToCanvas(nx,ny){ return [nx*SIZE, ny/SIZE*SIZE]; }
+
+mc.addEventListener('click', e=>{
+  if(running) return;
+  const r=mc.getBoundingClientRect();
+  const cx=(e.clientX-r.left)*(SIZE/r.width);
+  const cy=(e.clientY-r.top)*(SIZE/r.height);
+  points.push({x:canvasToNet(cx,cy), y:0}); // red=0
+  afterPointAdd();
+});
+mc.addEventListener('contextmenu', e=>{
+  e.preventDefault();
+  if(running) return;
+  const r=mc.getBoundingClientRect();
+  const cx=(e.clientX-r.left)*(SIZE/r.width);
+  const cy=(e.clientY-r.top)*(SIZE/r.height);
+  points.push({x:canvasToNet(cx,cy), y:1}); // blue=1
+  afterPointAdd();
+});
+
+function afterPointAdd(){
+  NN=createNet(HN);
+  epoch=0; lossHistory=[];
+  updateCounters();
+  drawAll();
+}
+
+// ══════════════════════════════════════
+//  DRAW DECISION BOUNDARY
+// ══════════════════════════════════════
+function drawDecision(){
+  if(!NN || points.length<2) return;
+  const res=60;
+  const step=SIZE/res;
+  for(let r=0;r<res;r++) for(let c=0;c<res;c++){
+    const nx=(c+.5)/res, ny=(r+.5)/res;
+    const{a2}=forward(NN,[nx,ny]);
+    const t=a2;
+    // Interpolate red ↔ blue
+    const red  = Math.round(30+t*40);
+    const green= Math.round(20+t*20);
+    const blue = Math.round(180*t+30*(1-t));
+    mctx.fillStyle=`rgba(${Math.round(220*(1-t)+30*t)},${Math.round(30*(1-t)+60*t)},${Math.round(30*(1-t)+200*t)},0.22)`;
+    mctx.fillRect(c*step,r*step,step+1,step+1);
+  }
+}
+
+function drawPoints(){
+  points.forEach(({x,y})=>{
+    const [cx,cy]=netToCanvas(x[0],x[1]);
+    const correct = NN ? Math.round(forward(NN,x).a2)===y : true;
+    mctx.beginPath();
+    mctx.arc(cx,cy,7,0,Math.PI*2);
+    mctx.fillStyle= y===0 ? '#e63325' : '#1a5eb8';
+    mctx.fill();
+    mctx.strokeStyle = correct ? '#1a1410' : '#ffcc00';
+    mctx.lineWidth   = correct ? 2 : 3;
+    mctx.stroke();
+  });
+}
+
+function drawGrid(){
+  mctx.strokeStyle='rgba(0,0,0,0.06)';
+  mctx.lineWidth=1;
+  for(let i=0;i<=10;i++){
+    mctx.beginPath();mctx.moveTo(i*50,0);mctx.lineTo(i*50,500);mctx.stroke();
+    mctx.beginPath();mctx.moveTo(0,i*50);mctx.lineTo(500,i*50);mctx.stroke();
+  }
+}
+
+function drawAll(){
+  mctx.clearRect(0,0,SIZE,SIZE);
+  mctx.fillStyle='#fafaf8';
+  mctx.fillRect(0,0,SIZE,SIZE);
+  drawGrid();
+  drawDecision();
+  drawPoints();
+}
+
+// ══════════════════════════════════════
+//  LOSS CHART
+// ══════════════════════════════════════
+const lc=document.getElementById('lossChart'), lctx=lc.getContext('2d');
+function drawLoss(){
+  const W=lc.width,H=lc.height;
+  lctx.clearRect(0,0,W,H);
+  lctx.fillStyle='#fafaf8'; lctx.fillRect(0,0,W,H);
+  if(lossHistory.length<2) return;
+  const mx=Math.max(...lossHistory), mn=0, rng=mx||1;
+  const pts=lossHistory.map((v,i)=>[(i/(lossHistory.length-1))*W, H-((v-mn)/rng)*(H-6)-3]);
+  lctx.beginPath(); pts.forEach(([x,y],i)=>i?lctx.lineTo(x,y):lctx.moveTo(x,y));
+  lctx.strokeStyle='#e63325'; lctx.lineWidth=2; lctx.stroke();
+  // fill
+  lctx.lineTo(W,H); lctx.lineTo(0,H); lctx.closePath();
+  lctx.fillStyle='rgba(230,51,37,0.1)'; lctx.fill();
+}
+
+// ══════════════════════════════════════
+//  NETWORK VISUALIZATION
+// ══════════════════════════════════════
+const nc=document.getElementById('netCanvas'),nctx=nc.getContext('2d');
+function drawNet(){
+  const W=nc.width,H=nc.height;
+  nctx.clearRect(0,0,W,H);
+  nctx.fillStyle='#fafaf8'; nctx.fillRect(0,0,W,H);
+  if(!NN) return;
+
+  const layers=[2,NN.h,1];
+  const colX=[40, W/2, W-40];
+  const nodePos=[];
+
+  layers.forEach((count,li)=>{
+    const xs=[];
+    for(let n=0;n<count;n++){
+      const y=(n+1)/(count+1)*H;
+      xs.push({x:colX[li],y});
+    }
+    nodePos.push(xs);
+  });
+
+  // Connections with weight color
+  const allW=[...NN.W1.map(r=>r).flat(),...NN.W2[0]];
+  const wMax=Math.max(...allW.map(Math.abs))||1;
+
+  // Layer1→hidden
+  NN.W1.forEach((row,hi)=>{
+    row.forEach((w,ii)=>{
+      const from=nodePos[0][ii], to=nodePos[1][hi];
+      const t=(w/wMax+1)/2;
+      nctx.beginPath(); nctx.moveTo(from.x,from.y); nctx.lineTo(to.x,to.y);
+      nctx.strokeStyle=`rgba(${w>0?'26,94,184':'230,51,37'},${0.15+Math.abs(w/wMax)*0.55})`;
+      nctx.lineWidth=0.8+Math.abs(w/wMax)*1.8; nctx.stroke();
+    });
+  });
+  // Hidden→output
+  NN.W2[0].forEach((w,hi)=>{
+    const from=nodePos[1][hi], to=nodePos[2][0];
+    nctx.beginPath(); nctx.moveTo(from.x,from.y); nctx.lineTo(to.x,to.y);
+    nctx.strokeStyle=`rgba(${w>0?'26,94,184':'230,51,37'},${0.15+Math.abs(w/wMax)*0.55})`;
+    nctx.lineWidth=0.8+Math.abs(w/wMax)*1.8; nctx.stroke();
+  });
+
+  // Nodes
+  nodePos.forEach((layer,li)=>{
+    layer.forEach(({x,y},ni)=>{
+      nctx.beginPath(); nctx.arc(x,y,7,0,Math.PI*2);
+      nctx.fillStyle=li===0?'#f5f0e8':li===2?'#1a1410':'#888';
+      nctx.fill();
+      nctx.strokeStyle='#1a1410'; nctx.lineWidth=2; nctx.stroke();
+    });
+  });
+}
+
+// ══════════════════════════════════════
+//  TRAINING LOOP
+// ══════════════════════════════════════
+function trainLoop(){
+  if(!running||points.length<2){running=false;setBadge(false);return;}
+  for(let i=0;i<20;i++){
+    const loss=trainStep(NN,points,LR);
+    if(i===19){
+      lossHistory.push(loss);
+      if(lossHistory.length>120) lossHistory.shift();
+      epoch++;
+      const acc=(accuracy(NN,points)*100).toFixed(0);
+      document.getElementById('accNum').textContent=acc+'%';
+      document.getElementById('accNum').className='big-num '+(acc>=90?'good':acc<50?'bad':'');
+      document.getElementById('epochVal').textContent=epoch;
+      document.getElementById('lossVal').textContent=loss.toFixed(4);
+      drawLoss();
+      drawNet();
+    }
+  }
+  drawAll();
+  rafId=requestAnimationFrame(trainLoop);
+}
+
+function startTraining(){
+  if(points.length<2){alert('Add at least 2 points first!');return;}
+  if(!NN) NN=createNet(HN);
+  running=true; setBadge(true);
+  trainLoop();
+}
+function stopTraining(){ running=false; setBadge(false); cancelAnimationFrame(rafId); }
+function setBadge(on){
+  const b=document.getElementById('trainBadge');
+  b.textContent=on?'TRAINING':'READY';
+  b.className='train-badge '+(on?'on':'off');
+}
+
+// ══════════════════════════════════════
+//  PRESET DATA
+// ══════════════════════════════════════
+function loadXOR(){
+  stopTraining();
+  points=[
+    {x:[0.2,0.2],y:0},{x:[0.8,0.8],y:0},
+    {x:[0.2,0.8],y:1},{x:[0.8,0.2],y:1},
+    {x:[0.25,0.25],y:0},{x:[0.75,0.75],y:0},
+    {x:[0.25,0.75],y:1},{x:[0.75,0.25],y:1},
+    {x:[0.15,0.15],y:0},{x:[0.85,0.85],y:0},
+    {x:[0.15,0.85],y:1},{x:[0.85,0.15],y:1},
+  ];
+  NN=createNet(HN); epoch=0; lossHistory=[];
+  updateCounters(); drawAll(); drawNet();
+}
+
+function loadSpiral(){
+  stopTraining();
+  points=[];
+  for(let i=0;i<20;i++){
+    const t=i/20;
+    const a=t*Math.PI*3;
+    const r=0.1+t*0.35;
+    points.push({x:[0.5+r*Math.cos(a),   0.5+r*Math.sin(a)],  y:0});
+    points.push({x:[0.5+r*Math.cos(a+Math.PI),0.5+r*Math.sin(a+Math.PI)],y:1});
+  }
+  NN=createNet(HN); epoch=0; lossHistory=[];
+  updateCounters(); drawAll(); drawNet();
+}
+
+function clearAll(){
+  stopTraining();
+  points=[]; NN=null; epoch=0; lossHistory=[];
+  updateCounters(); drawAll(); drawLoss(); drawNet();
+  document.getElementById('accNum').textContent='—';
+  document.getElementById('accNum').className='big-num';
+  document.getElementById('epochVal').textContent='0';
+  document.getElementById('lossVal').textContent='—';
+}
+
+function updateCounters(){
+  const reds=points.filter(p=>p.y===0).length;
+  const blues=points.filter(p=>p.y===1).length;
+  document.getElementById('redCount').textContent=reds+' RED';
+  document.getElementById('blueCount').textContent=blues+' BLUE';
+  document.getElementById('pointsVal').textContent=points.length;
+}
+
+// ══════════════════════════════════════
+//  CONTROLS
+// ══════════════════════════════════════
+document.getElementById('trainBtn').onclick=startTraining;
+document.getElementById('stopBtn').onclick=stopTraining;
+document.getElementById('clearBtn').onclick=clearAll;
+document.getElementById('xorBtn').onclick=loadXOR;
+document.getElementById('spiralBtn').onclick=loadSpiral;
+
+document.getElementById('lrSlider').oninput=function(){
+  LR=Math.pow(10,+this.value);
+  document.getElementById('lrVal').textContent=LR.toFixed(LR<0.01?4:LR<0.1?3:2);
+};
+document.getElementById('hnSlider').oninput=function(){
+  HN=+this.value;
+  document.getElementById('hnVal').textContent=HN;
+  document.getElementById('archVal').textContent=`2 → ${HN} → 1`;
+  if(!running){ NN=createNet(HN); epoch=0; lossHistory=[]; drawNet(); }
+};
+
+// ══════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════
+drawAll();
+drawNet();
+
+// Auto-load XOR as demo
+loadXOR();
+</script>
+</body>
+</html>

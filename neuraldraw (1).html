@@ -3,500 +3,369 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>NeuralDraw</title>
+<title>AnimalAI — Şəkil Tanıma</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#07070e;--s1:#0e0e1c;--s2:#14142a;
-  --b1:rgba(100,80,255,.12);--b2:rgba(100,80,255,.28);
-  --acc:#9955ff;--acc2:#44ffbb;--acc3:#ff5566;
-  --text:#eeeaff;--muted:#554488;
-  --fh:'Orbitron',monospace;--fm:'Share Tech Mono',monospace;
+  --bg:#f7f3ee;
+  --card:#ffffff;
+  --card2:#f0ebe3;
+  --ink:#1c1812;
+  --border:#e0d8cc;
+  --acc:#ff6b2b;
+  --acc2:#2b7fff;
+  --green:#1db85a;
+  --muted:#9b8e7e;
+  --fh:'Outfit',sans-serif;
+  --fm:'JetBrains Mono',monospace;
 }
-html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--fm)}
-body::before{content:'';position:fixed;inset:0;pointer-events:none;
-  background:radial-gradient(ellipse 60% 40% at 25% 15%,rgba(100,60,255,.07),transparent),
-             radial-gradient(ellipse 50% 50% at 80% 85%,rgba(60,255,180,.04),transparent)}
+html,body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fh)}
 
-.app{max-width:900px;margin:0 auto;padding:28px 16px 50px;display:flex;flex-direction:column;align-items:center;gap:20px;position:relative;z-index:1}
+/* subtle dot grid */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:radial-gradient(circle,rgba(0,0,0,.06) 1px,transparent 1px);
+  background-size:28px 28px}
 
-h1{font-family:var(--fh);font-size:clamp(22px,5vw,42px);font-weight:900;letter-spacing:3px;text-align:center;
-   background:linear-gradient(120deg,var(--acc),var(--acc2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.sub{font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;text-align:center}
+.app{position:relative;z-index:1;max-width:780px;margin:0 auto;padding:36px 18px 60px;display:flex;flex-direction:column;align-items:center;gap:24px}
 
-/* ── TABS ── */
-.tabs{display:flex;gap:0;border:1px solid var(--b2);border-radius:10px;overflow:hidden;width:100%;max-width:500px}
-.tab{flex:1;padding:10px;background:transparent;border:none;color:var(--muted);font-family:var(--fm);font-size:11px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:.2s;border-right:1px solid var(--b2)}
-.tab:last-child{border-right:none}
-.tab.active{background:var(--acc);color:#fff;font-weight:700}
+/* header */
+.hdr{text-align:center}
+h1{font-size:clamp(28px,6vw,52px);font-weight:800;letter-spacing:-1.5px;line-height:1.1}
+h1 em{font-style:normal;color:var(--acc)}
+.sub{font-family:var(--fm);font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-top:6px}
 
-/* ── COLLECT PHASE ── */
-#collectPhase{width:100%;display:flex;flex-direction:column;align-items:center;gap:16px}
-.digit-progress{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;width:100%;max-width:500px}
-.dp-cell{background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:6px 4px;text-align:center;transition:.3s}
-.dp-cell.done{border-color:var(--acc2);background:rgba(68,255,187,.08)}
-.dp-num{font-family:var(--fh);font-size:16px;color:var(--muted)}
-.dp-cell.done .dp-num{color:var(--acc2)}
-.dp-count{font-size:9px;color:var(--muted);letter-spacing:1px}
+/* status pill */
+.status-pill{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--border);border-radius:999px;padding:7px 16px;font-family:var(--fm);font-size:11px;color:var(--muted)}
+.pill-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:.3s}
+.pill-dot.loading{background:var(--acc);animation:blink .8s ease-in-out infinite}
+.pill-dot.ready{background:var(--green);box-shadow:0 0 8px rgba(29,184,90,.4)}
+.pill-dot.err{background:#ff3333}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
 
-.collect-main{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;align-items:flex-start;width:100%}
-.draw-card{background:var(--s1);border:1px solid var(--b2);border-radius:16px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:12px}
-.card-lbl{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);text-align:center}
-.target-digit{font-family:var(--fh);font-size:52px;font-weight:900;color:var(--acc);text-shadow:0 0 24px rgba(153,85,255,.5);line-height:1;text-align:center}
-#collectCanvas{background:#000;border-radius:10px;cursor:crosshair;border:2px solid var(--b2);display:block;touch-action:none;transition:border-color .2s,box-shadow .2s}
-#collectCanvas.on{border-color:var(--acc);box-shadow:0 0 20px rgba(153,85,255,.22)}
-.btns{display:flex;gap:8px;width:100%}
-.btn{flex:1;padding:10px;border:none;border-radius:8px;cursor:pointer;font-family:var(--fm);font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;transition:.18s}
-.btn-c{background:var(--s2);color:var(--muted);border:1px solid var(--b2)}
-.btn-c:hover{color:var(--text)}
-.btn-save{background:linear-gradient(135deg,#6030cc,#3090cc);color:#fff;box-shadow:0 4px 16px rgba(96,48,204,.3)}
-.btn-save:hover{box-shadow:0 6px 24px rgba(96,48,204,.5);transform:translateY(-1px)}
-.btn-save:disabled{opacity:.3;cursor:not-allowed;transform:none}
-.btn-train{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#07070e;font-weight:700;box-shadow:0 4px 20px rgba(153,85,255,.35)}
-.btn-train:hover{box-shadow:0 6px 28px rgba(153,85,255,.55);transform:translateY(-1px)}
-.btn-train:disabled{opacity:.3;cursor:not-allowed;transform:none}
+/* upload zone */
+.upload-zone{
+  width:100%;background:var(--card);border:2.5px dashed var(--border);border-radius:20px;
+  padding:40px 20px;display:flex;flex-direction:column;align-items:center;gap:12px;
+  cursor:pointer;transition:border-color .2s,background .2s;position:relative;overflow:hidden
+}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--acc);background:#fff8f5}
+.upload-zone.has-img{border-style:solid;border-color:var(--border);padding:0;cursor:default}
+.upload-icon{font-size:48px;line-height:1;transition:transform .2s}
+.upload-zone:hover .upload-icon{transform:scale(1.1) rotate(-5deg)}
+.upload-title{font-size:18px;font-weight:700;color:var(--ink)}
+.upload-sub{font-size:13px;color:var(--muted)}
+.upload-btn{background:var(--acc);color:#fff;border:none;border-radius:10px;padding:10px 22px;font-family:var(--fh);font-size:13px;font-weight:700;cursor:pointer;transition:.18s;margin-top:4px}
+.upload-btn:hover{background:#e55a1e;transform:translateY(-1px)}
+#fileInput{display:none}
 
-.collect-right{display:flex;flex-direction:column;gap:10px;min-width:200px}
-.samples-box{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
-.sb-title{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
-.sample-strip{display:flex;flex-wrap:wrap;gap:4px;min-height:40px}
-.sample-thumb{border-radius:4px;border:1px solid var(--b1);image-rendering:pixelated}
+/* preview image */
+#previewImg{width:100%;max-height:380px;object-fit:contain;display:none;border-radius:18px}
 
-.train-box{background:var(--s1);border:1px solid var(--b2);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
-.tb-title{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
-.prog-track{height:4px;background:var(--s2);border-radius:999px;overflow:hidden}
-.prog-fill{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .2s}
-.train-status{font-size:11px;color:var(--muted)}
-.train-status b{color:var(--acc2)}
+/* result section */
+.result-wrap{width:100%;display:flex;flex-direction:column;gap:16px}
 
-/* ── TEST PHASE ── */
-#testPhase{width:100%;display:flex;flex-direction:column;align-items:center;gap:16px}
-.test-layout{display:flex;gap:16px;width:100%;flex-wrap:wrap;justify-content:center}
-.result-card{flex:1;min-width:220px;background:var(--s1);border:1px solid var(--b2);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:14px}
-.big-box{display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--s2);border-radius:12px;padding:20px;border:1px solid var(--b1);min-height:110px;position:relative;overflow:hidden}
-.big-box::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 110%,rgba(153,85,255,.08),transparent 70%)}
-.res-d{font-family:var(--fh);font-size:68px;font-weight:900;line-height:1;color:var(--acc);text-shadow:0 0 28px rgba(153,85,255,.5)}
-.res-d.pop{animation:pop .25s ease}
-@keyframes pop{0%{transform:scale(.4);opacity:.1}65%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
-.res-conf{font-size:11px;color:var(--muted);margin-top:3px}
-.res-conf b{color:var(--acc2)}
-.bars-lbl{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
-.bars{display:flex;flex-direction:column;gap:4px}
-.brow{display:grid;grid-template-columns:14px 1fr 32px;align-items:center;gap:6px}
-.bd{font-size:10px;color:var(--muted);text-align:center;font-family:var(--fh)}
-.btrack{height:5px;background:var(--s2);border-radius:999px;overflow:hidden}
-.bfill{height:100%;width:0%;border-radius:999px;background:var(--b2);transition:width .35s cubic-bezier(.4,0,.2,1)}
-.brow.win .bd{color:var(--acc);font-weight:700}
-.brow.win .bfill{background:linear-gradient(90deg,var(--acc),var(--acc2))}
-.bpct{font-size:9px;color:var(--muted);text-align:right}
-.brow.win .bpct{color:var(--text)}
+/* top result card */
+.top-result{
+  background:var(--card);border:2px solid var(--border);border-radius:20px;
+  padding:24px 22px;display:flex;align-items:center;gap:18px;
+  transition:border-color .3s,box-shadow .3s
+}
+.top-result.show{border-color:var(--acc);box-shadow:0 4px 32px rgba(255,107,43,.1)}
+.tr-emoji{font-size:56px;line-height:1;flex-shrink:0}
+.tr-emoji.pop{animation:epop .4s ease}
+@keyframes epop{0%{transform:scale(.3) rotate(-20deg);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+.tr-info{flex:1;min-width:0}
+.tr-label{font-size:11px;font-family:var(--fm);letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.tr-name{font-size:26px;font-weight:800;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr-name.pop{animation:npop .35s ease}
+@keyframes npop{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+.tr-conf{font-family:var(--fm);font-size:13px;color:var(--muted);margin-top:3px}
+.tr-conf b{color:var(--green);font-size:15px}
 
-.hint{font-size:10px;color:var(--muted);text-align:center;line-height:1.9}
-.hint b{color:var(--acc)}
+/* confidence bar for top result */
+.conf-bar-wrap{margin-top:10px}
+.conf-bar-track{height:6px;background:var(--card2);border-radius:999px;overflow:hidden}
+.conf-bar-fill{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,var(--acc),#ffb347);transition:width .6s cubic-bezier(.4,0,.2,1)}
 
-/* score badge */
-.score-row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
-.score-badge{background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:8px 14px;text-align:center}
-.sb-val{font-family:var(--fh);font-size:20px;color:var(--acc2)}
-.sb-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+/* other predictions */
+.others-title{font-family:var(--fm);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.others{display:flex;flex-direction:column;gap:8px}
+.other-row{background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:12px 16px;display:grid;grid-template-columns:32px 1fr auto;align-items:center;gap:10px;transition:border-color .2s}
+.other-row:hover{border-color:var(--acc2)}
+.or-rank{font-family:var(--fm);font-size:11px;color:var(--muted);text-align:center}
+.or-info{min-width:0}
+.or-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.or-bar-track{height:4px;background:var(--card2);border-radius:999px;overflow:hidden;margin-top:4px}
+.or-bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--acc2),#66bbff);transition:width .5s .1s ease}
+.or-pct{font-family:var(--fm);font-size:12px;color:var(--muted);font-weight:500;white-space:nowrap}
+
+/* change btn */
+.change-btn{background:transparent;border:1.5px solid var(--border);border-radius:10px;padding:9px 18px;font-family:var(--fh);font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:.18s;align-self:center}
+.change-btn:hover{border-color:var(--ink);color:var(--ink)}
+
+/* info footer */
+.info-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;width:100%}
+.info-chip{background:var(--card);border:1.5px solid var(--border);border-radius:999px;padding:6px 14px;font-family:var(--fm);font-size:10px;color:var(--muted);letter-spacing:1px}
+.info-chip b{color:var(--ink)}
+
+/* loading spinner overlay */
+.spinner-wrap{display:none;flex-direction:column;align-items:center;gap:12px;padding:32px 0}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner-txt{font-family:var(--fm);font-size:12px;color:var(--muted);letter-spacing:1px}
 </style>
 </head>
 <body>
 <div class="app">
-  <h1>NEURAL DRAW</h1>
-  <p class="sub">Öz əl yazını öyrət · Sonra tanısın</p>
 
-  <div class="tabs">
-    <button class="tab active" id="tab1" onclick="showTab(1)">① Öyrət</button>
-    <button class="tab" id="tab2" onclick="showTab(2)" id="tab2">② Test Et</button>
+  <div class="hdr">
+    <h1>Animal <em>AI</em></h1>
+    <p class="sub">Şəkil yüklə · Neyron şəbəkə tanısın</p>
   </div>
 
-  <!-- COLLECT PHASE -->
-  <div id="collectPhase">
-    <div class="digit-progress" id="digitProgress"></div>
-
-    <div class="collect-main">
-      <div class="draw-card">
-        <span class="card-lbl">Hədəf rəqəm</span>
-        <div class="target-digit" id="targetDigit">0</div>
-        <canvas id="collectCanvas" width="240" height="240"></canvas>
-        <div class="btns">
-          <button class="btn btn-c" id="cclearBtn">Sil</button>
-          <button class="btn btn-save" id="saveBtn">Saxla ✓</button>
-        </div>
-        <div style="font-size:10px;color:var(--muted);text-align:center">
-          Hər rəqəmdən ən az <b style="color:var(--acc)">3</b> nümunə lazımdır
-        </div>
-      </div>
-
-      <div class="collect-right">
-        <div class="samples-box">
-          <div class="sb-title">Saxlanmış nümunələr — <span id="curDigitLbl">0</span></div>
-          <div class="sample-strip" id="sampleStrip"></div>
-        </div>
-        <div class="train-box">
-          <div class="tb-title">Şəbəkəni öyrət</div>
-          <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
-          <div class="train-status" id="trainStatus">Hər rəqəmdən 3+ nümunə topla</div>
-          <button class="btn btn-train" id="trainBtn" disabled onclick="startTrain()">⚡ Öyrət</button>
-        </div>
-      </div>
-    </div>
+  <div class="status-pill">
+    <div class="pill-dot loading" id="pillDot"></div>
+    <span id="pillTxt">MobileNet modeli yüklənir…</span>
   </div>
 
-  <!-- TEST PHASE -->
-  <div id="testPhase" style="display:none">
-    <div class="score-row">
-      <div class="score-badge"><div class="sb-val" id="scoreCorrect">0</div><div class="sb-lbl">Düzgün</div></div>
-      <div class="score-badge"><div class="sb-val" id="scoreTotal">0</div><div class="sb-lbl">Cəmi</div></div>
-      <div class="score-badge"><div class="sb-val" id="scoreAcc">—</div><div class="sb-lbl">Dəqiqlik</div></div>
-    </div>
-    <div class="test-layout">
-      <div class="draw-card">
-        <span class="card-lbl">Rəqəm çək</span>
-        <canvas id="testCanvas" width="240" height="240"></canvas>
-        <div class="btns">
-          <button class="btn btn-c" id="tclearBtn">Sil</button>
-          <button class="btn btn-save" id="predBtn">Tanı →</button>
+  <!-- Upload -->
+  <div class="upload-zone" id="uploadZone">
+    <div class="upload-icon">🐾</div>
+    <div class="upload-title">Şəkil buraya sürükle</div>
+    <div class="upload-sub">və ya faylı seç</div>
+    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Fayl seç</button>
+    <input type="file" id="fileInput" accept="image/*"/>
+    <img id="previewImg" alt="preview"/>
+  </div>
+
+  <!-- Spinner -->
+  <div class="spinner-wrap" id="spinnerWrap">
+    <div class="spinner"></div>
+    <div class="spinner-txt">Analiz edilir…</div>
+  </div>
+
+  <!-- Results -->
+  <div class="result-wrap" id="resultWrap" style="display:none">
+
+    <div class="top-result" id="topResult">
+      <div class="tr-emoji" id="trEmoji">🐶</div>
+      <div class="tr-info">
+        <div class="tr-label">Ən yüksək ehtimal</div>
+        <div class="tr-name" id="trName">—</div>
+        <div class="tr-conf">Ehtimal: <b id="trConf">—</b></div>
+        <div class="conf-bar-wrap">
+          <div class="conf-bar-track"><div class="conf-bar-fill" id="confBarFill"></div></div>
         </div>
       </div>
-      <div class="result-card">
-        <div class="big-box">
-          <div class="res-d" id="resD">?</div>
-          <div class="res-conf" id="resC">Rəqəm çəkib Tanı bas</div>
-        </div>
-        <span class="bars-lbl">Ehtimallar</span>
-        <div class="bars" id="barsEl"></div>
-      </div>
     </div>
-    <p class="hint"><b>İpucu:</b> Öyrətdiyindəki kimi çək · Eyni ölçü, eyni yer</p>
+
+    <div class="others-title">Digər ehtimallar</div>
+    <div class="others" id="othersEl"></div>
+
+    <button class="change-btn" id="changeBtn">↩ Başqa şəkil yüklə</button>
+  </div>
+
+  <div class="info-row">
+    <div class="info-chip">Model: <b>MobileNet v2</b></div>
+    <div class="info-chip">1000 sinif: <b>ImageNet</b></div>
+    <div class="info-chip">Tamamilə <b>offline</b> işləyir</div>
   </div>
 
 </div>
 
+<!-- TF.js + MobileNet -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+
 <script>
-// ═══════════════════════════════════════════════════
-//  NEURAL NETWORK  784 → 64 → 32 → 10
-// ═══════════════════════════════════════════════════
-const IN=784,H1=64,H2=32,OUT=10;
-const relu=v=>v>0?v:0;
-const reluD=v=>v>0?1:0;
-function softmax(z){const m=Math.max(...z),e=z.map(v=>Math.exp(v-m)),s=e.reduce((a,b)=>a+b,0);return e.map(v=>v/s)}
-function randn(){let u=Math.random()+1e-9,v=Math.random()+1e-9;return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
-function heInit(r,c,fan){const s=Math.sqrt(2/fan),a=new Float32Array(r*c);for(let i=0;i<a.length;i++)a[i]=randn()*s;return a}
-const Z=n=>new Float32Array(n);
+// ── Emoji map for common animals ──────────────────
+const EMOJI_MAP = {
+  dog:       '🐶', cat:     '🐱', bird:     '🐦',
+  fish:      '🐟', shark:   '🦈', lion:     '🦁',
+  tiger:     '🐯', bear:    '🐻', elephant: '🐘',
+  horse:     '🐴', cow:     '🐄', pig:      '🐷',
+  chicken:   '🐔', duck:    '🦆', goose:    '🦢',
+  rabbit:    '🐰', hamster: '🐹', mouse:    '🐭',
+  snake:     '🐍', frog:    '🐸', turtle:   '🐢',
+  crocodile: '🐊', lizard:  '🦎', parrot:   '🦜',
+  owl:       '🦉', eagle:   '🦅', penguin:  '🐧',
+  flamingo:  '🦩', peacock: '🦚', zebra:    '🦓',
+  giraffe:   '🦒', monkey:  '🐒', gorilla:  '🦍',
+  wolf:      '🐺', fox:     '🦊', deer:     '🦌',
+  panda:     '🐼', koala:   '🐨', kangaroo: '🦘',
+  dolphin:   '🐬', whale:   '🐳', octopus:  '🐙',
+  crab:      '🦀', lobster: '🦞', bee:      '🐝',
+  butterfly: '🦋', ant:     '🐜', spider:   '🕷️',
+  snail:     '🐌', worm:    '🪱', bat:      '🦇',
+  hedgehog:  '🦔', raccoon: '🦝', skunk:    '🦨',
+  camel:     '🐪', llama:   '🦙', sheep:    '🐑',
+  goat:      '🐐', rooster: '🐓', turkey:   '🦃',
+};
 
-let W1,b1,W2,b2,W3,b3;
-let mW1,vW1,mb1,vb1,mW2,vW2,mb2,vb2,mW3,vW3,mb3,vb3,AT=0;
-const LR=0.005,B1=.9,B2=.999,EPS=1e-8;
-
-function initNet(){
-  W1=heInit(H1,IN,IN);b1=Z(H1);
-  W2=heInit(H2,H1,H1);b2=Z(H2);
-  W3=heInit(OUT,H2,H2);b3=Z(OUT);
-  mW1=Z(W1.length);vW1=Z(W1.length);mb1=Z(H1);vb1=Z(H1);
-  mW2=Z(W2.length);vW2=Z(W2.length);mb2=Z(H2);vb2=Z(H2);
-  mW3=Z(W3.length);vW3=Z(W3.length);mb3=Z(OUT);vb3=Z(OUT);
-  AT=0;
+function getEmoji(label) {
+  const l = label.toLowerCase();
+  for (const [key, emoji] of Object.entries(EMOJI_MAP)) {
+    if (l.includes(key)) return emoji;
+  }
+  return '🔍';
 }
 
-function fwd(x,drop=false){
-  const DR=0.15,SC=1/(1-DR);
-  // layer 1
-  const z1=Z(H1);
-  for(let i=0;i<H1;i++){let s=b1[i];for(let j=0;j<IN;j++)s+=W1[i*IN+j]*x[j];z1[i]=s}
-  let a1=z1.map(relu);
-  if(drop)a1=a1.map(v=>Math.random()<DR?0:v*SC);
-  // layer 2
-  const z2=Z(H2);
-  for(let i=0;i<H2;i++){let s=b2[i];for(let j=0;j<H1;j++)s+=W2[i*H1+j]*a1[j];z2[i]=s}
-  let a2=z2.map(relu);
-  if(drop)a2=a2.map(v=>Math.random()<DR?0:v*SC);
-  // layer 3
-  const z3=Z(OUT);
-  for(let i=0;i<OUT;i++){let s=b3[i];for(let j=0;j<H2;j++)s+=W3[i*H2+j]*a2[j];z3[i]=s}
-  const a3=softmax(Array.from(z3));
-  return{z1,a1,z2,a2,z3,a3};
+function cleanLabel(raw) {
+  // ImageNet labels are like "n02099712 Labrador_retriever"
+  // Remove synset id, replace underscores, title case
+  return raw
+    .replace(/^n\d+\s*/,'')
+    .replace(/_/g,' ')
+    .replace(/,.*$/,'')    // take first part if comma-separated
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
-function bwd(x,yHot,c){
-  const{z1,a1,z2,a2,a3}=c;
-  const dz3=a3.map((v,i)=>v-yHot[i]);
-  const dW3=Z(OUT*H2),db3=new Float32Array(dz3);
-  for(let i=0;i<OUT;i++)for(let j=0;j<H2;j++)dW3[i*H2+j]=a2[j]*dz3[i];
-  const da2=Z(H2);for(let j=0;j<H2;j++)for(let i=0;i<OUT;i++)da2[j]+=W3[i*H2+j]*dz3[i];
-  const dz2=da2.map((v,i)=>v*reluD(z2[i]));
-  const dW2=Z(H2*H1),db2=new Float32Array(dz2);
-  for(let i=0;i<H2;i++)for(let j=0;j<H1;j++)dW2[i*H1+j]=a1[j]*dz2[i];
-  const da1=Z(H1);for(let j=0;j<H1;j++)for(let i=0;i<H2;i++)da1[j]+=W2[i*H1+j]*dz2[i];
-  const dz1=da1.map((v,i)=>v*reluD(z1[i]));
-  const dW1=Z(H1*IN),db1=new Float32Array(dz1);
-  for(let i=0;i<H1;i++)for(let j=0;j<IN;j++)dW1[i*IN+j]=x[j]*dz1[i];
-  return{dW1,db1,dW2,db2,dW3,db3};
-}
+// ── DOM refs ──────────────────────────────────────
+const pillDot     = document.getElementById('pillDot');
+const pillTxt     = document.getElementById('pillTxt');
+const uploadZone  = document.getElementById('uploadZone');
+const fileInput   = document.getElementById('fileInput');
+const previewImg  = document.getElementById('previewImg');
+const spinnerWrap = document.getElementById('spinnerWrap');
+const resultWrap  = document.getElementById('resultWrap');
+const topResult   = document.getElementById('topResult');
+const trEmoji     = document.getElementById('trEmoji');
+const trName      = document.getElementById('trName');
+const trConf      = document.getElementById('trConf');
+const confBarFill = document.getElementById('confBarFill');
+const othersEl    = document.getElementById('othersEl');
+const changeBtn   = document.getElementById('changeBtn');
 
-function adamUpd(W,dW,mW,vW){
-  for(let i=0;i<W.length;i++){
-    mW[i]=B1*mW[i]+(1-B1)*dW[i];
-    vW[i]=B2*vW[i]+(1-B2)*dW[i]*dW[i];
-    W[i]-=LR*(mW[i]/(1-B1**AT))/(Math.sqrt(vW[i]/(1-B2**AT))+EPS);
+let model = null;
+
+// ── Load model ────────────────────────────────────
+async function loadModel() {
+  try {
+    model = await mobilenet.load({ version: 2, alpha: 1.0 });
+    pillDot.className = 'pill-dot ready';
+    pillTxt.textContent = 'Model hazırdır — şəkil yüklə!';
+  } catch(e) {
+    pillDot.className = 'pill-dot err';
+    pillTxt.textContent = 'Model yüklənmədi. İnternet bağlantısını yoxla.';
+    console.error(e);
   }
 }
-function step(g){AT++;adamUpd(W1,g.dW1,mW1,vW1);adamUpd(b1,g.db1,mb1,vb1);adamUpd(W2,g.dW2,mW2,vW2);adamUpd(b2,g.db2,mb2,vb2);adamUpd(W3,g.dW3,mW3,vW3);adamUpd(b3,g.db3,mb3,vb3)}
+loadModel();
 
-// ═══════════════════════════════════════════════════
-//  DATA AUGMENTATION — ölçü/mövqe dəyişkənliyi
-// ═══════════════════════════════════════════════════
-function augment(px){
-  // Random shift ±2px
-  const dx=Math.round((Math.random()-.5)*4);
-  const dy=Math.round((Math.random()-.5)*4);
-  const out=new Float32Array(784);
-  for(let r=0;r<28;r++)for(let c=0;c<28;c++){
-    const nr=r+dy,nc=c+dx;
-    if(nr>=0&&nr<28&&nc>=0&&nc<28)out[nr*28+nc]=px[r*28+c];
+// ── File handling ─────────────────────────────────
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+// Drag & drop
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+// Click anywhere on zone (when no image)
+uploadZone.addEventListener('click', e => {
+  if (!uploadZone.classList.contains('has-img') && e.target !== document.querySelector('.upload-btn')) {
+    fileInput.click();
   }
-  // Random noise
-  for(let i=0;i<784;i++)out[i]=Math.max(0,Math.min(1,out[i]+(Math.random()-.5)*0.06));
-  return out;
+});
+
+changeBtn.addEventListener('click', resetUI);
+
+function handleFile(file) {
+  if (!file.type.startsWith('image/')) { alert('Zəhmət olmasa şəkil faylı seç!'); return; }
+  const url = URL.createObjectURL(file);
+  previewImg.src = url;
+  previewImg.style.display = 'block';
+  uploadZone.classList.add('has-img');
+  // Hide upload decorations
+  uploadZone.querySelectorAll('.upload-icon,.upload-title,.upload-sub,.upload-btn').forEach(el => el.style.display = 'none');
+  previewImg.onload = () => classify(previewImg);
 }
 
-// Centre of mass
-function centre(px){
-  let sx=0,sy=0,tot=0;
-  for(let r=0;r<28;r++)for(let c=0;c<28;c++){const v=px[r*28+c];sx+=c*v;sy+=r*v;tot+=v;}
-  if(tot<1)return px;
-  const dx=Math.round(14-sx/tot),dy=Math.round(14-sy/tot);
-  const sh=new Float32Array(784);
-  for(let r=0;r<28;r++)for(let c=0;c<28;c++){const nr=r+dy,nc=c+dx;if(nr>=0&&nr<28&&nc>=0&&nc<28)sh[nr*28+nc]=px[r*28+c];}
-  return sh;
+// ── Classify ──────────────────────────────────────
+async function classify(imgEl) {
+  if (!model) { alert('Model hələ yüklənir, bir az gözlə!'); return; }
+  resultWrap.style.display = 'none';
+  spinnerWrap.style.display = 'flex';
+
+  try {
+    const preds = await model.classify(imgEl, 5);
+    spinnerWrap.style.display = 'none';
+    showResults(preds);
+  } catch(e) {
+    spinnerWrap.style.display = 'none';
+    alert('Xəta baş verdi: ' + e.message);
+    console.error(e);
+  }
 }
 
-// ═══════════════════════════════════════════════════
-//  CANVAS HELPER
-// ═══════════════════════════════════════════════════
-function makeCanvas(id,size=240){
-  const cv=document.getElementById(id),ctx=cv.getContext('2d');
-  ctx.fillStyle='#000';ctx.fillRect(0,0,size,size);
-  ctx.strokeStyle='#fff';ctx.lineWidth=Math.round(size*0.075);ctx.lineCap='round';ctx.lineJoin='round';
-  let painting=false,lx=0,ly=0;
-  const pos=e=>{const r=cv.getBoundingClientRect(),s=e.touches?e.touches[0]:e;return[(s.clientX-r.left)*(size/r.width),(s.clientY-r.top)*(size/r.height)]};
-  cv.addEventListener('mousedown',e=>{painting=true;[lx,ly]=pos(e);cv.classList.add('on')});
-  cv.addEventListener('touchstart',e=>{e.preventDefault();painting=true;[lx,ly]=pos(e);cv.classList.add('on')},{passive:false});
-  cv.addEventListener('mousemove',e=>{if(!painting)return;const[x,y]=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);ctx.stroke();[lx,ly]=[x,y]});
-  cv.addEventListener('touchmove',e=>{e.preventDefault();if(!painting)return;const[x,y]=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);ctx.stroke();[lx,ly]=[x,y]},{passive:false});
-  ['mouseup','mouseleave','touchend'].forEach(ev=>cv.addEventListener(ev,()=>{painting=false;cv.classList.remove('on')}));
-  return{
-    clear(){ctx.fillStyle='#000';ctx.fillRect(0,0,size,size)},
-    getPixels(){
-      const t=document.createElement('canvas');t.width=t.height=28;
-      const tc=t.getContext('2d');tc.drawImage(cv,0,0,28,28);
-      const d=tc.getImageData(0,0,28,28).data;
-      const px=new Float32Array(784);
-      for(let i=0;i<784;i++)px[i]=d[i*4]/255;
-      return centre(px);
-    },
-    getThumb(){
-      const t=document.createElement('canvas');t.width=t.height=28;
-      t.getContext('2d').drawImage(cv,0,0,28,28);
-      return t.toDataURL();
-    }
-  };
-}
+// ── Show results ──────────────────────────────────
+function showResults(preds) {
+  if (!preds || preds.length === 0) return;
 
-// ═══════════════════════════════════════════════════
-//  STATE
-// ═══════════════════════════════════════════════════
-// samples[digit] = array of Float32Array(784)
-const samples=Array.from({length:10},()=>[]);
-let currentDigit=0;
-let scoreCorrect=0,scoreTotal=0;
+  const top   = preds[0];
+  const name  = cleanLabel(top.className);
+  const conf  = (top.probability * 100).toFixed(1);
+  const emoji = getEmoji(top.className);
 
-const cc=makeCanvas('collectCanvas',240);
-const tc=makeCanvas('testCanvas',240);
+  // Top card
+  trEmoji.textContent = emoji;
+  trEmoji.classList.remove('pop'); void trEmoji.offsetWidth; trEmoji.classList.add('pop');
+  trName.textContent  = name;
+  trName.classList.remove('pop'); void trName.offsetWidth; trName.classList.add('pop');
+  trConf.textContent  = conf + '%';
+  topResult.classList.add('show');
 
-// ═══════════════════════════════════════════════════
-//  COLLECT UI
-// ═══════════════════════════════════════════════════
-const MIN_SAMPLES=3;
-const AUG_PER_SAMPLE=15; // augment each real sample 15×
+  // Animate bar
+  confBarFill.style.width = '0%';
+  setTimeout(() => { confBarFill.style.width = conf + '%'; }, 50);
 
-// Build digit progress cells
-const dp=document.getElementById('digitProgress');
-for(let i=0;i<10;i++){
-  dp.innerHTML+=`<div class="dp-cell" id="dpc${i}"><div class="dp-num">${i}</div><div class="dp-count" id="dpcnt${i}">0</div></div>`;
-}
+  // Change bar color by confidence
+  if (top.probability > 0.7) confBarFill.style.background = 'linear-gradient(90deg,#1db85a,#44ffaa)';
+  else if (top.probability > 0.4) confBarFill.style.background = 'linear-gradient(90deg,var(--acc),#ffb347)';
+  else confBarFill.style.background = 'linear-gradient(90deg,#aaa,#ccc)';
 
-function setTarget(d){
-  currentDigit=d;
-  document.getElementById('targetDigit').textContent=d;
-  document.getElementById('curDigitLbl').textContent=d;
-  cc.clear();
-  refreshSampleStrip();
-  checkTrainReady();
-}
-
-function refreshSampleStrip(){
-  const strip=document.getElementById('sampleStrip');
-  strip.innerHTML='';
-  samples[currentDigit].forEach(({thumb})=>{
-    const img=document.createElement('img');
-    img.src=thumb;img.width=36;img.height=36;img.className='sample-thumb';
-    strip.appendChild(img);
+  // Others
+  othersEl.innerHTML = '';
+  preds.slice(1).forEach((p, i) => {
+    const n  = cleanLabel(p.className);
+    const c  = (p.probability * 100).toFixed(1);
+    const row = document.createElement('div');
+    row.className = 'other-row';
+    row.innerHTML = `
+      <span class="or-rank">#${i+2}</span>
+      <div class="or-info">
+        <div class="or-name">${getEmoji(p.className)} ${n}</div>
+        <div class="or-bar-track"><div class="or-bar-fill" id="orf${i}" style="width:0%"></div></div>
+      </div>
+      <span class="or-pct">${c}%</span>`;
+    othersEl.appendChild(row);
+    setTimeout(() => {
+      document.getElementById('orf'+i).style.width = c + '%';
+    }, 100 + i * 60);
   });
+
+  resultWrap.style.display = 'flex';
 }
 
-function updateDigitProgress(){
-  for(let i=0;i<10;i++){
-    const n=samples[i].length;
-    document.getElementById('dpcnt'+i).textContent=n;
-    document.getElementById('dpc'+i).classList.toggle('done',n>=MIN_SAMPLES);
-  }
-}
-
-function checkTrainReady(){
-  const ready=samples.every(s=>s.length>=MIN_SAMPLES);
-  document.getElementById('trainBtn').disabled=!ready;
-  document.getElementById('trainStatus').innerHTML=ready
-    ?'Hazırdır! Öyrətməyə başla'
-    :`Hər rəqəmdən ${MIN_SAMPLES}+ nümunə lazımdır`;
-}
-
-// Save button
-document.getElementById('saveBtn').onclick=()=>{
-  const px=cc.getPixels();
-  const sum=px.reduce((a,b)=>a+b,0);
-  if(sum<5){alert('Kətan boşdur! Əvvəlcə rəqəm çək.');return;}
-  samples[currentDigit].push({px,thumb:cc.getThumb()});
-  cc.clear();
-  updateDigitProgress();
-  refreshSampleStrip();
-  checkTrainReady();
-  // auto-advance digit
-  if(samples[currentDigit].length>=MIN_SAMPLES){
-    const next=(currentDigit+1)%10;
-    setTarget(next);
-  }
-};
-document.getElementById('cclearBtn').onclick=()=>cc.clear();
-
-// Digit cell click
-for(let i=0;i<10;i++){
-  document.getElementById('dpc'+i).onclick=()=>setTarget(i);
-}
-setTarget(0);
-
-// ═══════════════════════════════════════════════════
-//  TRAINING
-// ═══════════════════════════════════════════════════
-async function startTrain(){
-  document.getElementById('trainBtn').disabled=true;
-  const status=document.getElementById('trainStatus');
-  const prog=document.getElementById('progFill');
-
-  // Build dataset with augmentation
-  const data=[];
-  for(let d=0;d<10;d++){
-    samples[d].forEach(({px})=>{
-      // Add original
-      const y=new Float32Array(10);y[d]=1;
-      data.push({x:px,y});
-      // Add augmented copies
-      for(let a=0;a<AUG_PER_SAMPLE;a++){
-        data.push({x:augment(px),y});
-      }
-    });
-  }
-  // Shuffle
-  for(let i=data.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[data[i],data[j]]=[data[j],data[i]];}
-
-  initNet();
-  const EPOCHS=80,BS=16;
-  status.innerHTML=`Öyrənir… (${data.length} nümunə)`;
-
-  for(let ep=0;ep<EPOCHS;ep++){
-    // shuffle
-    for(let i=data.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[data[i],data[j]]=[data[j],data[i]];}
-    let loss=0,ok=0;
-    for(let i=0;i<data.length;i+=BS){
-      const batch=data.slice(i,i+BS);
-      const gW1=Z(W1.length),gb1=Z(H1),gW2=Z(W2.length),gb2=Z(H2),gW3=Z(W3.length),gb3=Z(OUT);
-      batch.forEach(({x,y})=>{
-        const c=fwd(x,true),g=bwd(x,y,c);
-        for(let k=0;k<gW1.length;k++)gW1[k]+=g.dW1[k];for(let k=0;k<gb1.length;k++)gb1[k]+=g.db1[k];
-        for(let k=0;k<gW2.length;k++)gW2[k]+=g.dW2[k];for(let k=0;k<gb2.length;k++)gb2[k]+=g.db2[k];
-        for(let k=0;k<gW3.length;k++)gW3[k]+=g.dW3[k];for(let k=0;k<gb3.length;k++)gb3[k]+=g.db3[k];
-        const lbl=Array.from(y).indexOf(1);
-        loss-=Math.log(Math.max(c.a3[lbl],1e-9));
-        if(c.a3.indexOf(Math.max(...c.a3))===lbl)ok++;
-      });
-      const inv=1/batch.length;
-      step({dW1:gW1.map(v=>v*inv),db1:gb1.map(v=>v*inv),dW2:gW2.map(v=>v*inv),db2:gb2.map(v=>v*inv),dW3:gW3.map(v=>v*inv),db3:gb3.map(v=>v*inv)});
-    }
-    const pct=((ep+1)/EPOCHS*100);
-    prog.style.width=pct+'%';
-    if((ep+1)%10===0){
-      const acc=(ok/data.length*100).toFixed(0);
-      status.innerHTML=`Epoch ${ep+1}/${EPOCHS} · Dəqiqlik: <b>${acc}%</b>`;
-      await new Promise(r=>setTimeout(r,0));
-    }
-  }
-  status.innerHTML='<b style="color:var(--acc2)">✓ Hazırdır! Test etməyə keç.</b>';
-  document.getElementById('trainBtn').disabled=false;
-  // switch to test tab
-  showTab(2);
-}
-
-// ═══════════════════════════════════════════════════
-//  TEST UI
-// ═══════════════════════════════════════════════════
-// Build bars
-const barsEl=document.getElementById('barsEl');
-barsEl.innerHTML=Array.from({length:10},(_,i)=>`
-  <div class="brow" id="br${i}">
-    <span class="bd">${i}</span>
-    <div class="btrack"><div class="bfill" id="bf${i}"></div></div>
-    <span class="bpct" id="bp${i}">0%</span>
-  </div>`).join('');
-
-function updateBars(p){
-  const best=p.indexOf(Math.max(...p));
-  for(let i=0;i<10;i++){
-    const pct=(p[i]*100).toFixed(1);
-    document.getElementById('bf'+i).style.width=pct+'%';
-    document.getElementById('bp'+i).textContent=Math.round(pct)+'%';
-    document.getElementById('br'+i).classList.toggle('win',i===best);
-  }
-}
-function resetBars(){for(let i=0;i<10;i++){document.getElementById('bf'+i).style.width='0%';document.getElementById('bp'+i).textContent='0%';document.getElementById('br'+i).classList.remove('win')}}
-
-const resD=document.getElementById('resD'),resC=document.getElementById('resC');
-document.getElementById('predBtn').onclick=()=>{
-  if(!W1){alert('Əvvəlcə şəbəkəni öyrət!');return;}
-  const px=tc.getPixels();
-  if(px.reduce((a,b)=>a+b,0)<3){return;}
-  const{a3}=fwd(px,false);
-  const best=a3.indexOf(Math.max(...a3));
-  resD.textContent=best;
-  resD.classList.remove('pop');void resD.offsetWidth;resD.classList.add('pop');
-  resC.innerHTML=`Ehtimal: <b>${(a3[best]*100).toFixed(1)}%</b>`;
-  updateBars(a3);
-  scoreTotal++;
-  document.getElementById('scoreTotal').textContent=scoreTotal;
-  document.getElementById('scoreAcc').textContent=scoreTotal?Math.round(scoreCorrect/scoreTotal*100)+'%':'—';
-  tc.clear();resetBars();
-};
-document.getElementById('tclearBtn').onclick=()=>{tc.clear();resetBars();resD.textContent='?';resC.textContent='Rəqəm çəkib Tanı bas';};
-
-// ═══════════════════════════════════════════════════
-//  TABS
-// ═══════════════════════════════════════════════════
-function showTab(n){
-  document.getElementById('collectPhase').style.display=n===1?'flex':'none';
-  document.getElementById('testPhase').style.display=n===2?'flex':'none';
-  document.getElementById('tab1').classList.toggle('active',n===1);
-  document.getElementById('tab2').classList.toggle('active',n===2);
+// ── Reset ─────────────────────────────────────────
+function resetUI() {
+  uploadZone.classList.remove('has-img');
+  previewImg.style.display = 'none';
+  previewImg.src = '';
+  uploadZone.querySelectorAll('.upload-icon,.upload-title,.upload-sub,.upload-btn').forEach(el => el.style.display = '');
+  resultWrap.style.display = 'none';
+  topResult.classList.remove('show');
+  confBarFill.style.width = '0%';
+  othersEl.innerHTML = '';
+  fileInput.value = '';
 }
 </script>
 </body>
